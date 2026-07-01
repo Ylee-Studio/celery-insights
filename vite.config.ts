@@ -7,6 +7,51 @@ import mdx from "@mdx-js/rollup"
 import rehypeSlug from "rehype-slug"
 import remarkGfm from "remark-gfm"
 import { loadTsconfigAliases } from "./tooling/tsconfig-aliases"
+import { normalizeBasePath } from "./runtime/url-prefix"
+
+const viteBasePath = normalizeBasePath(process.env.BASE_PATH)
+const viteBase = viteBasePath ? `${viteBasePath}/` : "/"
+
+const devProxy = {
+  "/metrics": {
+    target: "http://localhost:8556",
+    changeOrigin: true,
+    secure: false,
+  },
+  "/api": {
+    target: "http://localhost:8556",
+    changeOrigin: true,
+    secure: false,
+  },
+  "/ws": {
+    target: "ws://localhost:8556",
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+  },
+  "/health": {
+    target: "http://localhost:8556",
+    changeOrigin: true,
+    secure: false,
+  },
+  "/surreal": {
+    target: "ws://localhost:8557",
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+    rewrite: (path: string) => path.replace(/^\/surreal/, ""),
+  },
+}
+
+function withDevProxyPrefix(proxyConfig: typeof devProxy): typeof devProxy {
+  if (!viteBasePath) {
+    return proxyConfig
+  }
+
+  return Object.fromEntries(
+    Object.entries(proxyConfig).map(([route, options]) => [`${viteBasePath}${route}`, options]),
+  )
+}
 
 const DOCS_SOURCE_SUFFIX = ".source"
 const DOCS_SOURCE_PREFIX = "\0docs-source:"
@@ -46,6 +91,7 @@ const docsSourcePlugin = () => ({
 })
 
 export default defineConfig({
+  base: viteBase,
   plugins: [
     tailwindcss(),
     TanStackRouterVite({
@@ -77,35 +123,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    proxy: {
-      "/metrics": {
-        target: "http://localhost:8556",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/api": {
-        target: "http://localhost:8556",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/ws": {
-        target: "ws://localhost:8556",
-        changeOrigin: true,
-        secure: false,
-        ws: true,
-      },
-      "/health": {
-        target: "http://localhost:8556",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/surreal": {
-        target: "ws://localhost:8557",
-        changeOrigin: true,
-        secure: false,
-        ws: true,
-        rewrite: (path) => path.replace(/^\/surreal/, ""),
-      },
-    },
+    proxy: withDevProxyPrefix(devProxy),
   },
 })

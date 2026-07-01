@@ -26,6 +26,7 @@ describe("parseConfig", () => {
     expect(config.debugBundlePath).toBeUndefined()
     expect(config.timezone).toBe("UTC")
     expect(config.debug).toBe(false)
+    expect(config.basePath).toBe("")
   })
 
   it("maps SCREAMING_SNAKE_CASE env vars to camelCase", () => {
@@ -137,5 +138,19 @@ describe("parseConfig", () => {
       DEBUG_BUNDLE_PATH: "/snapshots/debug-bundle.zip",
     })
     expect(config.debugBundlePath).toBe("/snapshots/debug-bundle.zip")
+  })
+
+  it("normalizes BASE_PATH", () => {
+    const config = parseConfig({
+      BASE_PATH: "/celery-insights/",
+    })
+    expect(config.basePath).toBe("/celery-insights")
+  })
+
+  it("accepts URL_PREFIX as alias for BASE_PATH", () => {
+    const config = parseConfig({
+      URL_PREFIX: "celery-insights",
+    })
+    expect(config.basePath).toBe("/celery-insights")
   })
 })

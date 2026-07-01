@@ -1,6 +1,7 @@
 """Integration tests for metrics endpoints using the real FastAPI app with mocked SurrealDB."""
 
 import asyncio
+import queue
 from unittest.mock import MagicMock
 
 import pytest
@@ -56,7 +57,7 @@ def _mock_surrealdb(mocker: MockerFixture):
     ingester._dropped_count = 3
     ingester._stats_flushes_total = 100
     ingester._buffer = []
-    ingester.queue = asyncio.Queue()
+    ingester.queue = queue.Queue()
     app.state.ingester = ingester
 
 

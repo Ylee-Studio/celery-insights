@@ -5,6 +5,7 @@ import { Progress } from "@components/ui/progress"
 import { Button } from "@components/ui/button"
 import { DEMO_SCHEMA } from "@lib/demo-schema"
 import { DemoEventGenerator } from "@lib/demo-event-generator"
+import { appPath } from "@lib/app-path"
 
 export type IngestionStatus = "leader" | "standby" | "read-only" | "disabled"
 
@@ -54,7 +55,7 @@ const NAMESPACE = "celery_insights"
 const DATABASE = "main"
 
 async function fetchConfig(): Promise<AppConfig> {
-  const res = await fetch("/api/config")
+  const res = await fetch(appPath("/api/config"))
   if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`)
   return res.json()
 }

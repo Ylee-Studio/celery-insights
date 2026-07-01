@@ -2,6 +2,7 @@ import { Button } from "@components/ui/button"
 import useSettingsStore from "@stores/use-settings-store"
 import { startTour } from "@stores/use-tour-store"
 import { BookOpenText, Sparkles, X } from "lucide-react"
+import { Link } from "@tanstack/react-router"
 import React from "react"
 
 interface DashboardWelcomeBannerProps {
@@ -37,10 +38,10 @@ const DashboardWelcomeBanner: React.FC<DashboardWelcomeBannerProps> = ({ isDemo 
       <div className="flex items-center gap-2 self-start">
         <Button onClick={() => startTour()}>Start Tour</Button>
         <Button variant="ghost" asChild>
-          <a href="/documentation/setup" className="gap-2">
+          <Link to="/documentation/setup" className="gap-2">
             <BookOpenText className="size-4" />
             Setup
-          </a>
+          </Link>
         </Button>
         <Button variant="ghost" size="icon" onClick={() => useSettingsStore.setState({ hideWelcomeBanner: true })}>
           <X className="size-4" />

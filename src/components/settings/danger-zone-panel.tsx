@@ -6,6 +6,7 @@ import useSettingsStore from "@stores/use-settings-store"
 import { useQueryClient } from "@tanstack/react-query"
 import { Loader2, Trash2, TriangleAlert } from "lucide-react"
 import React, { useEffect, useState } from "react"
+import { appPath } from "@lib/app-path"
 
 const DangerZonePanel: React.FC<{ hideHeader?: boolean }> = ({ hideHeader = false }) => {
   const isDemo = useSettingsStore((state) => state.demo)
@@ -33,7 +34,7 @@ const DangerZonePanel: React.FC<{ hideHeader?: boolean }> = ({ hideHeader = fals
     setIsClearing(true)
     setStatusMessage(null)
     try {
-      const res = await fetch("/api/settings/clear", { method: "POST" })
+      const res = await fetch(appPath("/api/settings/clear"), { method: "POST" })
       const success = res.ok ? ((await res.json()) as boolean) : false
       if (!success) throw new Error("clear failed")
 

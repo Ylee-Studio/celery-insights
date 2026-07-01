@@ -11,6 +11,7 @@ import readline from "node:readline"
 import { spawn, type ChildProcess } from "node:child_process"
 import { Surreal } from "surrealdb"
 import { config, type Config } from "./runtime/config"
+import { stripBasePath, withBasePath } from "./runtime/url-prefix"
 import {
   createDebugBundleArchive,
   exportSurrealNative,
@@ -90,6 +91,9 @@ function printBanner(runtimeConfig: Config, replaySnapshot: ParsedDebugSnapshot 
   }
   if (runtimeConfig.debug) {
     lines.push(`  ${c.dim}Debug${c.reset}       enabled`)
+  }
+  if (runtimeConfig.basePath) {
+    lines.push(`  ${c.dim}Base path${c.reset}  ${runtimeConfig.basePath}`)
   }
   if (replaySnapshot) {
     lines.push(`  ${c.dim}Snapshot${c.reset}    ${replaySnapshot.bundlePath}`)
@@ -551,13 +555,14 @@ const server = Bun.serve({
   port: runtimeConfig.port,
   async fetch(req: Request, server: any) {
     const url = new URL(req.url)
+    const pathname = stripBasePath(url.pathname, runtimeConfig.basePath)
     const { httpBase: surrealHttpBase } = getSurrealBases(runtimeConfig)
 
     const isUpgrade = req.headers.get("upgrade")?.toLowerCase() === "websocket"
 
     // Handle WebSocket upgrade requests for /surreal/* paths (proxy to SurrealDB)
-    if (url.pathname.startsWith("/surreal/") && isUpgrade) {
-      const surrealPath = url.pathname.slice("/surreal".length) // strip /surreal, keep leading /
+    if (pathname.startsWith("/surreal/") && isUpgrade) {
+      const surrealPath = pathname.slice("/surreal".length) // strip /surreal, keep leading /
       const success = server.upgrade(req, {
         data: {
           targetPath: surrealPath + url.search,
@@ -570,21 +575,22 @@ const server = Bun.serve({
     }
 
     // Handle WebSocket upgrade requests for /ws/* paths (proxy to Python)
-    if (url.pathname.startsWith("/ws") && isUpgrade) {
+    if (pathname.startsWith("/ws") && isUpgrade) {
       const success = server.upgrade(req, {
-        data: { targetPath: url.pathname + url.search, backend: "python" as const },
+        data: { targetPath: pathname + url.search, backend: "python" as const },
       })
       if (success) return undefined
       return new Response("WebSocket upgrade failed", { status: 500 })
     }
 
     // Bun-served endpoint: frontend configuration
-    if (url.pathname === "/api/config") {
+    if (pathname === "/api/config") {
       const authRequired =
         runtimeConfig.surrealdbFrontendPass !== null && runtimeConfig.surrealdbFrontendPass !== undefined
       return Response.json({
         authRequired,
-        surrealPath: "/surreal/rpc",
+        basePath: runtimeConfig.basePath,
+        surrealPath: withBasePath(runtimeConfig.basePath, "/surreal/rpc"),
         ingestionStatus: leaderElection?.status ?? ingestionStatus,
         debugSnapshot: getSnapshotSummary(replaySnapshot),
         // When auth is not required, pass viewer credentials so the frontend
@@ -601,7 +607,7 @@ const server = Bun.serve({
       })
     }
 
-    if (url.pathname === "/api/settings/debug-snapshot") {
+    if (pathname === "/api/settings/debug-snapshot") {
       const details = getSnapshotDetails(replaySnapshot)
       if (!details) {
         return Response.json({ error: "debug snapshot is not active" }, { status: 404 })
@@ -609,7 +615,7 @@ const server = Bun.serve({
       return Response.json(details)
     }
 
-    if (url.pathname === "/api/settings/download-debug-bundle" && req.method === "POST") {
+    if (pathname === "/api/settings/download-debug-bundle" && req.method === "POST") {
       let clientInfo: DebugBundleClientInfo
       try {
         clientInfo = (await req.json()) as DebugBundleClientInfo
@@ -651,7 +657,7 @@ const server = Bun.serve({
     }
 
     // Bun-served endpoint: health check (always available)
-    if (url.pathname === "/health") {
+    if (pathname === "/health") {
       return Response.json({
         status: "ok",
         ingestionStatus: leaderElection?.status ?? ingestionStatus,
@@ -661,8 +667,8 @@ const server = Bun.serve({
     }
 
     // Proxy /surreal/* HTTP requests to SurrealDB (strip /surreal prefix)
-    if (url.pathname.startsWith("/surreal/")) {
-      const surrealPath = url.pathname.slice("/surreal".length)
+    if (pathname.startsWith("/surreal/")) {
+      const surrealPath = pathname.slice("/surreal".length)
       const targetUrl = `${surrealHttpBase}${surrealPath}${url.search}`
       try {
         const proxyRes = await fetch(targetUrl, {
@@ -681,12 +687,12 @@ const server = Bun.serve({
     }
 
     // Proxy API and metrics routes to the Python backend (only if Python is running)
-    if (url.pathname.startsWith("/api") || url.pathname.startsWith("/metrics")) {
+    if (pathname.startsWith("/api") || pathname.startsWith("/metrics")) {
       if (!pythonProcess) {
         return new Response("Backend not available (ingestion not active on this instance)", { status: 503 })
       }
 
-      const targetUrl = `${PYTHON_BACKEND}${url.pathname}${url.search}`
+      const targetUrl = `${PYTHON_BACKEND}${pathname}${url.search}`
       try {
         const proxyRes = await fetch(targetUrl, {
           method: req.method,
@@ -704,14 +710,14 @@ const server = Bun.serve({
     }
 
     // Serve static assets (JS/CSS bundles, SVGs, fonts, images)
-    if (url.pathname.startsWith("/assets/") || url.pathname.match(/\.(svg|png|ico|jpg|css|js|woff2?|ttf|map)$/)) {
-      const filePath = path.resolve(DIST_DIR, "." + url.pathname)
+    if (pathname.startsWith("/assets/") || pathname.match(/\.(svg|png|ico|jpg|css|js|woff2?|ttf|map)$/)) {
+      const filePath = path.resolve(DIST_DIR, "." + pathname)
       if (!filePath.startsWith(DIST_DIR)) return new Response("Forbidden", { status: 403 })
       const file = Bun.file(filePath)
       if (await file.exists()) {
         return new Response(file, {
           headers: {
-            "Cache-Control": url.pathname.startsWith("/assets/")
+            "Cache-Control": pathname.startsWith("/assets/")
               ? "public, max-age=31536000, immutable"
               : "public, max-age=3600",
           },

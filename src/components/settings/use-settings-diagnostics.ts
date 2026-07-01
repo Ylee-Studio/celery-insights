@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { appPath } from "@lib/app-path"
 
 export interface SettingsDiagnostics {
   cpu_usage: [number, number, number]
@@ -64,7 +65,7 @@ export interface DebugSnapshotDetails {
 }
 
 export const fetchSettingsDiagnostics = async (): Promise<SettingsDiagnostics> => {
-  const res = await fetch("/api/settings/info")
+  const res = await fetch(appPath("/api/settings/info"))
   if (!res.ok) throw new Error(`Server info request failed: ${res.status}`)
   return res.json()
 }
@@ -78,7 +79,7 @@ export const useSettingsDiagnostics = ({ enabled = true }: { enabled?: boolean }
   })
 
 export const fetchDebugSnapshotDetails = async (): Promise<DebugSnapshotDetails> => {
-  const res = await fetch("/api/settings/debug-snapshot")
+  const res = await fetch(appPath("/api/settings/debug-snapshot"))
   if (!res.ok) throw new Error(`Debug snapshot request failed: ${res.status}`)
   return res.json()
 }

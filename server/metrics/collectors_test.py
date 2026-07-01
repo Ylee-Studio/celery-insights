@@ -1,4 +1,5 @@
 import asyncio
+import queue
 from unittest.mock import AsyncMock
 
 import pytest
@@ -165,7 +166,7 @@ class TestCollectTier3:
         ingester._dropped_count = 5
         ingester._stats_flushes_total = 200
         ingester._buffer = [1, 2, 3]
-        ingester.queue = asyncio.Queue()
+        ingester.queue = queue.Queue()
 
         result = (await collect_tier3(ingester)).decode()
 

@@ -7,11 +7,23 @@ import "./styles.css"
 
 const router = getRouter()
 
+function shouldEnableVercelAnalytics(): boolean {
+  if (import.meta.env.DEV) {
+    return false
+  }
+
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  return window.location.hostname.endsWith(".vercel.app")
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <>
       <RouterProvider router={router} />
-      <Analytics />
+      {shouldEnableVercelAnalytics() ? <Analytics /> : null}
     </>
   </StrictMode>,
 )

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import queue
 import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -63,6 +64,26 @@ def _epoch_to_iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
+def _collect_query_errors(result: object) -> list[str]:
+    """Return SurrealDB error messages from a query result."""
+    if result is None:
+        return ["query returned None"]
+    if isinstance(result, str):
+        return [result]
+
+    if not isinstance(result, list):
+        return []
+
+    errors: list[str] = []
+    for entry in result:
+        if isinstance(entry, str):
+            errors.append(entry)
+            continue
+        if isinstance(entry, dict) and entry.get("status") == "ERR":
+            errors.append(str(entry.get("result") or entry.get("detail") or entry))
+    return errors
+
+
 def _workflow_id_for_event(event: dict) -> str | None:
     task_id = event.get("uuid")
     if not task_id:
@@ -82,7 +103,7 @@ class SurrealDBIngester:
 
     def __init__(
         self,
-        queue: asyncio.Queue[dict],
+        queue: queue.Queue[dict],
         batch_interval_ms: int = 100,
         on_terminal: Callable[[list[str]], Awaitable[None]] | None = None,
     ):
@@ -113,8 +134,9 @@ class SurrealDBIngester:
     async def _consume_loop(self) -> None:
         while not self._stop_event.is_set():
             try:
-                event = await asyncio.wait_for(self.queue.get(), timeout=0.5)
-            except TimeoutError:
+                event = self.queue.get_nowait()
+            except queue.Empty:
+                await asyncio.sleep(0.05)
                 continue
             except asyncio.CancelledError:
                 break
@@ -206,8 +228,12 @@ class SurrealDBIngester:
         if queries:
             try:
                 db = get_db()
-                full_query = "BEGIN TRANSACTION;\n" + ";\n".join(queries) + ";\nCOMMIT TRANSACTION;"
-                await db.query(full_query, params)
+                # SurrealDB Python client does not execute BEGIN/COMMIT batches (returns None).
+                full_query = ";\n".join(queries)
+                result = await db.query(full_query, params)
+                errors = _collect_query_errors(result)
+                if errors:
+                    raise RuntimeError("; ".join(errors))
                 self._stats_events_total += len(events)
                 self._stats_flushes_total += 1
                 logger.debug("Flushed %d events (%d queries) to SurrealDB", len(events), len(queries))

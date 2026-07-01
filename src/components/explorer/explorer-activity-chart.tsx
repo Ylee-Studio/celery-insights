@@ -153,8 +153,8 @@ const ExplorerActivityChart = ({
       ) : !hasValues ? (
         <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">{emptyLabel}</div>
       ) : (
-        <div className="relative h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="relative h-[220px] min-h-[220px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height={220} minWidth={0}>
             <BarChart data={chartData} margin={CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis

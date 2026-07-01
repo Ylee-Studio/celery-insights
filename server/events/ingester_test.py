@@ -1,5 +1,6 @@
 import asyncio
 import json
+import queue
 
 import pytest
 from pytest_mock import MockerFixture
@@ -311,7 +312,7 @@ class TestSurrealDBIngester:
 
     @pytest.fixture()
     def queue(self):
-        return asyncio.Queue()
+        return queue.Queue()
 
     @pytest.mark.asyncio
     async def test_flush_executes_batch_query(self, mock_db, queue):
@@ -324,8 +325,7 @@ class TestSurrealDBIngester:
 
         mock_db.query.assert_called_once()
         query_str = mock_db.query.call_args[0][0]
-        assert "BEGIN TRANSACTION" in query_str
-        assert "COMMIT TRANSACTION" in query_str
+        assert "BEGIN TRANSACTION" not in query_str
         assert "UPSERT type::record('task'" in query_str
         assert "UPSERT type::record('workflow'" in query_str
         assert "UPSERT type::record('workflow_task'" in query_str
@@ -378,7 +378,7 @@ class TestSurrealDBIngester:
 
         # Put a new event into the queue and run one iteration of the consume loop
         new_event = {"type": "task-sent", "uuid": "new-task", "timestamp": 2000000000.0}
-        await queue.put(new_event)
+        queue.put(new_event)
 
         ingester.start()
         # Give the consume loop time to process the event

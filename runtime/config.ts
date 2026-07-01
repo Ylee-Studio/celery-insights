@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { normalizeBasePath } from "./url-prefix"
+
 /**
  * Coerces string/boolean values to boolean.
  * Handles "true"/"false" strings correctly (unlike z.coerce.boolean which uses Boolean()).
@@ -12,6 +14,7 @@ const configSchema = z
   .object({
     // Server
     port: z.coerce.number().int().positive().default(8555),
+    basePath: z.string().default(""),
 
     // SurrealDB
     surrealdbUrl: z.string().url().default("ws://localhost:8557/rpc"),
@@ -52,6 +55,7 @@ const configSchema = z
   })
   .transform((c) => ({
     ...c,
+    basePath: normalizeBasePath(c.basePath),
     // When SURREALDB_EXTERNAL_URL is set and SURREALDB_URL is still the default,
     // use the external URL for all connections
     surrealdbUrl:
@@ -65,6 +69,8 @@ export type Config = z.infer<typeof configSchema>
 
 const ENV_KEY_MAP: Record<string, string> = {
   PORT: "port",
+  BASE_PATH: "basePath",
+  URL_PREFIX: "basePath",
   SURREALDB_URL: "surrealdbUrl",
   SURREALDB_EXTERNAL_URL: "surrealdbExternalUrl",
   SURREALDB_INGESTER_PASS: "surrealdbIngesterPass",

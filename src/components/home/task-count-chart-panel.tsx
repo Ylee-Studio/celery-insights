@@ -38,8 +38,8 @@ const TaskCountChartPanel: React.FC = () => {
           </div>
         ))}
       </div>
-      <div className="h-40">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="h-40 min-h-40 w-full min-w-0">
+        <ResponsiveContainer width="100%" height={160} minWidth={0}>
           <AreaChart data={chartData} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="successFill" x1="0" y1="0" x2="0" y2="1">

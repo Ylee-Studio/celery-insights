@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import useSettingsStore from "@stores/use-settings-store"
 import { AlertCircle, Download, Loader2, TriangleAlert } from "lucide-react"
 import React, { useMemo, useState } from "react"
+import { appPath } from "@lib/app-path"
 
 function getDownloadFilename(response: Response): string {
   const contentDisposition = response.headers?.get("Content-Disposition")
@@ -48,7 +49,7 @@ export const DownloadDebugBundleButton: React.FC<{ label?: string }> = ({ label 
     setErrorMessage(null)
     setStatusMessage("Preparing debug bundle. This can take a moment.")
     try {
-      const response = await fetch("/api/settings/download-debug-bundle", {
+      const response = await fetch(appPath("/api/settings/download-debug-bundle"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

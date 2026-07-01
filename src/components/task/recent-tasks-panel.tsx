@@ -81,12 +81,13 @@ const RecentTasksPanel: React.FC<Omit<PanelProps, "title">> = (props) => {
           </div>
           <span>
             For more information, see the{" "}
-            <a
-              href="/documentation/celery-clusters#baseline-event-settings"
+            <RouterLink
+              to="/documentation/celery-clusters"
+              hash="baseline-event-settings"
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
               in-app documentation
-            </a>
+            </RouterLink>
             .
           </span>
         </div>

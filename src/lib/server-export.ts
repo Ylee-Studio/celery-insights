@@ -1,4 +1,5 @@
 import { downloadFile } from "@lib/export-tasks"
+import { appPath } from "@lib/app-path"
 
 interface ExplorerExportPayload {
   kind: "explorer"
@@ -27,7 +28,7 @@ export async function downloadServerCsvExport(
   payload: ExplorerExportPayload | RawEventsExportPayload,
   filename: string,
 ) {
-  const response = await fetch("/api/exports/csv", {
+  const response = await fetch(appPath("/api/exports/csv"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

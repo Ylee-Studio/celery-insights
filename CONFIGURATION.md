@@ -68,6 +68,16 @@ Default: `8555`
 
 Public HTTP port served by Bun. This is the port you expose from Docker, Compose, or Kubernetes.
 
+#### BASE_PATH
+
+Default: `/` (empty — app served from domain root)
+
+URL prefix when the app is served behind a reverse proxy on a subpath, for example `/celery-insights`.
+Set the same value at **build time** (`BASE_PATH` Docker build arg / Vite `base`) and at **runtime** (container env).
+`URL_PREFIX` is accepted as an alias.
+
+When nginx strips the prefix before proxying (`proxy_pass http://upstream/;`), Bun still needs `BASE_PATH` at runtime so `/api/config` can return the external paths used by the browser.
+
 #### DEBUG
 
 Default: `false`

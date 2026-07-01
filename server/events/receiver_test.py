@@ -1,4 +1,4 @@
-import asyncio
+import queue
 
 import pytest
 from celery import Celery
@@ -10,10 +10,8 @@ from events.receiver import CeleryEventReceiver
 @pytest.fixture
 def receiver():
     celery_app = Celery()
-    loop = asyncio.new_event_loop()
-    recv = CeleryEventReceiver(celery_app, loop)
+    recv = CeleryEventReceiver(celery_app)
     yield recv
-    loop.close()
 
 
 def test_stop_with_receiver(receiver, mocker: MockerFixture):
@@ -48,9 +46,6 @@ def test_adds_event_to_queue(receiver, should_stop):
             receiver.on_event(event)
     else:
         receiver.on_event(event)
-
-    # on_event schedules put_nowait via call_soon_threadsafe; run pending callbacks
-    receiver._loop.run_until_complete(asyncio.sleep(0))
 
     assert not receiver.queue.empty()
     assert receiver.queue.get_nowait() == event

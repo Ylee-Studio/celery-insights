@@ -226,7 +226,7 @@ class ResultBackendPoller:
             )
 
             db = get_db()
-            full_query = "BEGIN TRANSACTION;\n" + ";\n".join([query, summary_query]) + ";\nCOMMIT TRANSACTION;"
+            full_query = ";\n".join([query, summary_query])
             result = await db.query(full_query, params | summary_params)
             errors = _query_errors(result)
             if errors:

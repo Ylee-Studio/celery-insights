@@ -47,6 +47,8 @@ COPY /public ./public
 COPY /bun-entry.ts /index.html /vitest.config.ts /vitest.setup.ts ./
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
+ARG BASE_PATH=/
+ENV BASE_PATH=${BASE_PATH}
 RUN bun run build
 RUN bun build bun-entry.ts --target=bun --outfile ./bun-server.js
 
@@ -83,6 +85,9 @@ COPY --from=front-build /app/bun-server.js ./bun-server.js
 
 # Set environment for production
 ENV NODE_ENV=production
+
+ARG BASE_PATH=/
+ENV BASE_PATH=${BASE_PATH}
 
 # Avoid running as root
 RUN useradd -m -s /usr/sbin/nologin myuser

@@ -50,7 +50,7 @@ async def lifespan(_):
         result_fetcher = ResultFetcher(celery_app)
         result_backend_poller = ResultBackendPoller(celery_app)
 
-        event_receiver = CeleryEventReceiver(celery_app, asyncio.get_running_loop())
+        event_receiver = CeleryEventReceiver(celery_app)
         event_receiver.start()
 
         ingester = SurrealDBIngester(
