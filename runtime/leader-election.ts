@@ -58,6 +58,11 @@ export class LeaderElection {
     return this._status
   }
 
+  /** Swap the SurrealDB client after embedded SurrealDB restarts. */
+  replaceDb(newDb: Surreal): void {
+    this.db = newDb
+  }
+
   /**
    * Start the leader election process.
    * Returns the initial status after the first election attempt.

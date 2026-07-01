@@ -196,6 +196,7 @@ function buildDebugBundleFilename(date = new Date()): string {
 const SURREAL_BACKOFF_BASE_MS = 1000
 const SURREAL_BACKOFF_MAX_MS = 30000
 let surrealRestartAttempts = 0
+let surrealRecoveryPromise: Promise<void> | null = null
 
 /** Strip ANSI escape codes from a string. */
 function stripAnsi(s: string): string {
@@ -298,11 +299,70 @@ function spawnSurrealDB(): ChildProcess {
     setTimeout(() => {
       if (!shuttingDown) {
         surrealProcess = spawnSurrealDB()
+        scheduleSurrealRecovery()
       }
     }, backoffMs)
   })
 
   return proc
+}
+
+async function connectSurrealClient(activeConfig: Config): Promise<Surreal> {
+  const client = new Surreal()
+  await client.connect(activeConfig.surrealdbUrl, {
+    namespace: activeConfig.surrealdbNamespace,
+    database: activeConfig.surrealdbDatabase,
+    authentication: {
+      namespace: activeConfig.surrealdbNamespace,
+      database: activeConfig.surrealdbDatabase,
+      username: "ingester",
+      password: activeConfig.surrealdbIngesterPass,
+    },
+  })
+  return client
+}
+
+function scheduleSurrealRecovery(): void {
+  if (surrealRecoveryPromise || shuttingDown || replaySnapshot || runtimeConfig.surrealdbExternalUrl) {
+    return
+  }
+
+  surrealRecoveryPromise = recoverAfterSurrealRestart().finally(() => {
+    surrealRecoveryPromise = null
+  })
+}
+
+async function recoverAfterSurrealRestart(): Promise<void> {
+  bunLogger.warn("Recovering after SurrealDB restart — re-running schema migration")
+
+  const wasLeader = leaderElection?.isLeader ?? false
+
+  if (pythonProcess) {
+    pythonProcess.kill("SIGTERM")
+    pythonProcess = null
+  }
+
+  try {
+    await waitForSurrealDB()
+    await runSchemaMigration(runtimeConfig)
+
+    try {
+      await surrealClient.close()
+    } catch {
+      // Previous connection is already dead after SurrealDB restart.
+    }
+
+    surrealClient = await connectSurrealClient(runtimeConfig)
+    leaderElection?.replaceDb(surrealClient)
+    bunLogger.info("Reconnected to SurrealDB after restart")
+
+    if (wasLeader || !runtimeConfig.ingestionLeaderElection) {
+      pythonRestartAttempts = 0
+      pythonProcess = spawnPython()
+    }
+  } catch (err) {
+    bunLogger.error(`Failed to recover after SurrealDB restart: ${err}`)
+  }
 }
 
 function createProxyRequestHeaders(headers: Headers): Headers {
@@ -499,18 +559,9 @@ await waitForSurrealDB()
 await runSchemaMigration(runtimeConfig)
 
 // 4. Connect to SurrealDB as ingester user
-const db = new Surreal()
+let surrealClient: Surreal
 try {
-  await db.connect(runtimeConfig.surrealdbUrl, {
-    namespace: runtimeConfig.surrealdbNamespace,
-    database: runtimeConfig.surrealdbDatabase,
-    authentication: {
-      namespace: runtimeConfig.surrealdbNamespace,
-      database: runtimeConfig.surrealdbDatabase,
-      username: "ingester",
-      password: runtimeConfig.surrealdbIngesterPass,
-    },
-  })
+  surrealClient = await connectSurrealClient(runtimeConfig)
   bunLogger.info("Connected to SurrealDB")
 } catch (err) {
   bunLogger.error(`Failed to connect to SurrealDB: ${err}`)
@@ -519,9 +570,9 @@ try {
 
 if (replaySnapshot) {
   if (replaySnapshot.sourceDataSqlPath) {
-    await importSurrealNative(runtimeConfig, db, replaySnapshot.sourceDataSqlPath)
+    await importSurrealNative(runtimeConfig, surrealClient, replaySnapshot.sourceDataSqlPath)
   } else if (replaySnapshot.sourceData) {
-    await importSurrealData(db, replaySnapshot.sourceData)
+    await importSurrealData(surrealClient, replaySnapshot.sourceData)
   } else {
     throw new Error("Debug snapshot does not contain SurrealDB export data")
   }
@@ -531,7 +582,7 @@ if (replaySnapshot) {
 } else {
   // 5. Run leader election (spawns Python if this instance becomes leader)
   leaderElection = new LeaderElection({
-    db,
+    db: surrealClient,
     config: runtimeConfig,
     instanceId,
     onBecomeLeader() {
@@ -627,7 +678,7 @@ const server = Bun.serve({
         fetchJsonFromPython<Record<string, unknown>>("/api/settings/info"),
         fetchJsonFromPython<Record<string, unknown>>("/api/settings/retention"),
         fetchJsonFromPython<Record<string, unknown>>("/health"),
-        getSurrealRecordCounts(db),
+        getSurrealRecordCounts(surrealClient),
         exportSurrealNative(runtimeConfig),
       ])
       const archive = await createDebugBundleArchive({
