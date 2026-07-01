@@ -57,11 +57,11 @@ describe("useLiveWorkers", () => {
     mockLiveOf.mockResolvedValue(subscription)
   })
 
-  it("queries all workers ordered by last_updated DESC", async () => {
+  it("queries all workers without volatile ordering", async () => {
     renderHook(() => useLiveWorkers())
 
     await waitFor(() => {
-      expect(mockQuery).toHaveBeenCalledWith("SELECT * FROM worker ORDER BY last_updated DESC", undefined)
+      expect(mockQuery).toHaveBeenCalledWith("SELECT * FROM worker", undefined)
     })
   })
 
@@ -162,10 +162,7 @@ describe("useOnlineWorkers", () => {
     renderHook(() => useOnlineWorkers())
 
     await waitFor(() => {
-      expect(mockQuery).toHaveBeenCalledWith(
-        "SELECT * FROM worker WHERE status = 'online' ORDER BY last_updated DESC",
-        undefined,
-      )
+      expect(mockQuery).toHaveBeenCalledWith("SELECT * FROM worker WHERE status = 'online'", undefined)
     })
   })
 

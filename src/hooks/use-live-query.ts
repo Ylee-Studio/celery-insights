@@ -116,7 +116,7 @@ export function useLiveQuery<T extends { id: unknown }>(options: UseLiveQueryOpt
       // record-specific SELECTs (e.g. SELECT * FROM $rid).
       // Normalize to always work with arrays.
       const items = Array.isArray(result) ? result : result !== null && result !== undefined ? [result as T] : []
-      setData(items)
+      setData(applyOrderAndLimit(items))
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err : new Error(String(err)))

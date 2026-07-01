@@ -2,6 +2,7 @@ import LinearProgressWithLabel from "@components/common/linear-progress-with-lab
 import { Tooltip, TooltipContent, TooltipTrigger } from "@components/ui/tooltip"
 import type { SurrealWorker } from "@/types/surreal-records"
 import { extractId } from "@/types/surreal-records"
+import { getWorkerDisplayName, getWorkerNodeId } from "@utils/worker-display"
 import React from "react"
 
 interface WorkerQuickStatusProps {
@@ -9,15 +10,16 @@ interface WorkerQuickStatusProps {
 }
 
 const WorkerQuickStatus: React.FC<WorkerQuickStatusProps> = ({ worker }) => {
-  const hostname = worker.hostname || extractId(worker.id)
+  const displayName = getWorkerDisplayName(worker)
+  const nodeId = getWorkerNodeId(worker)
 
   return (
     <div className="rounded-xl px-2 py-2 transition-colors hover:bg-sidebar-accent/40">
       <Tooltip>
         <TooltipTrigger asChild>
-          <p className="truncate overflow-hidden text-sm font-medium text-sidebar-foreground">{hostname}</p>
+          <p className="truncate overflow-hidden text-sm font-medium text-sidebar-foreground">{displayName}</p>
         </TooltipTrigger>
-        <TooltipContent>{hostname}</TooltipContent>
+        <TooltipContent>{nodeId}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
